@@ -1,0 +1,90 @@
+---
+- hosts: splunk
+  vars:
+    host_key_checking: False
+    #cboypassword: password
+    #vkey: 1234567890
+    #penalty: 12
+    #speed_bonus: 1
+    #adminpasssword: password
+    ansible_ssh_private_key_file: ./anisible_test.pem
+  remote_user: centos
+  become: yes
+  gather_facts: no
+  pre_tasks:
+   - name: 'install python'
+     raw: 'sudo yum install -y python'
+  tasks:
+   - name: Run yum update
+     yum:
+       name: '*'
+       state: latest
+   - name: Install Git
+     yum:
+       name: git
+       state: latest
+   - name: Copy Splunk
+     unarchive:
+       dest: /opt
+       src: ./splunk-Linux-x86_64.tgz
+   - name: Copy lookup editor
+     unarchive:
+       dest: /opt/splunk/etc/apps
+       src: ./lookup-file-editor.tgz
+   - name: Copy Parallel Coordinates
+     unarchive:
+       dest: /opt/splunk/etc/apps
+       src: ./parallel-coordinates-custom-visualization.tgz
+   - name: Copy time series
+     unarchive:
+       dest: /opt/splunk/etc/apps
+       src: ./simple-timeseries-custom-visualization.tgz
+   - name: Copy timeline
+     unarchive:
+       dest: /opt/splunk/etc/apps
+       src: ./timeline-custom-visualization.tgz
+   - name: Clone BOTS Scoreboard
+     git:
+       repo: https://github.com/pyrodie18/SA-ctf_scoreboard.git
+       dest: /opt/splunk/etc/apps/SA-ctf_scoreboard
+       force: yes
+   - name: Clone BOTS Admin
+     git:
+       repo: https://github.com/pyrodie18/SA-ctf_scoreboard_admin.git
+       dest: /opt/splunk/etc/apps/SA-ctf_scoreboard_admin
+       force: yes
+   - name: Configure BOTS Scoreboard
+     command: mv /opt/splunk/etc/apps/SA-ctf_scoreboard/appserver/controllers/scoreboard_controller.config.example /opt/splunk/etc/apps/SA-ctf_scoreboard/appserver/controllers/scoreboard_controller.config
+   - name: Set Server User
+     replace:
+       path: /opt/splunk/etc/apps/SA-ctf_scoreboard/appserver/controllers/scoreboard_controller.config
+       regexp: '(\s+)USER(\s+.*)?$'
+       replace: '\1USER = Canaboy'
+   - name: Set Server User Password
+     replace:
+       path: /opt/splunk/etc/apps/SA-ctf_scoreboard/appserver/controllers/scoreboard_controller.config
+       regexp: '(\s+)PASS(\s+.*)?$'
+       replace: '\1PASS = {{cboypassword}}'
+   - name: Set VKEY
+     replace:
+       path: /opt/splunk/etc/apps/SA-ctf_scoreboard/appserver/controllers/scoreboard_controller.config
+       regexp: '(\s+)VKEY(\s+.*)?$'
+       replace: '\1VKEY = {{vkey}}'
+   - name: Set Server Penalty
+     replace:
+       path: /opt/splunk/etc/apps/SA-ctf_scoreboard/appserver/controllers/scoreboard_controller.config
+       regexp: '(\s+)PENALTY(\s+.*)?$'
+       replace: '\1PENALTY = {{penalty}}'
+   - name: Set Server point deduction
+     replace:
+       path: /opt/splunk/etc/apps/SA-ctf_scoreboard/appserver/controllers/scoreboard_controller.config
+       regexp: '(\s+)ENABLE_SPEED_BONUS(\s+.*)?$'
+       replace: '\1ENABLE_SPEED_BONUS = {{speed_bonus}}'
+   - name: Create Log Directory
+     file:
+       path: /opt/splunk/var/log/scoreboard
+       state: directory
+   - name: Start splunk
+     command: /opt/splunk/bin/splunk start --no-prompt --accept-license --answer-yes --seed-passwd {{adminpassword}}
+   - name: Start splunk
+     command: /opt/splunk/bin/splunk  add user cabanaboy -password {{cboypassword}} -role ctf_answers_service -auth admin:{{adminpassword}}
