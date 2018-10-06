@@ -15,6 +15,16 @@
    - name: 'install python'
      raw: 'sudo yum install -y python'
   tasks:
+   - name: Format Partition
+     filesystem:
+       fstype: ext3
+       dev: /dev/xvdb
+   - name: Mount Volue
+     mount:
+       src: /dev/xvdb
+       path: /opt
+       fstype: ext3
+       state: mounted
    - name: Run yum update
      yum:
        name: '*'
